@@ -43,7 +43,7 @@ init_db()
 # ── Session Defaults ──────────────────────────────────────────────────────────
 def _init_session():
     defaults = {
-        "ai_provider": "demo",
+        "ai_provider": "gemini",
         "api_key": "",
         "prefs": {},
         "itinerary": None,
@@ -73,11 +73,15 @@ with st.sidebar:
 """, unsafe_allow_html=True)
 
     # ── API Configuration ─────────────────────────────────────────────────────
-    with st.expander("🔑 API Configuration", expanded=True):
+    with st.expander("🔑 AI Engine Settings", expanded=False):
         provider = st.selectbox(
             "AI Provider",
-            ["demo", "gemini", "groq"],
-            format_func=lambda x: {"demo": "⚡ Demo Mode (No Key)", "gemini": "🤖 Google Gemini", "groq": "⚡ Groq (LLaMA3)"}.get(x, x),
+            ["gemini", "groq", "demo"],
+            format_func=lambda x: {
+                "gemini": "🤖 Google Gemini (Default)",
+                "groq": "⚡ Groq (LLaMA3)",
+                "demo": "⚡ Offline Demo Mode",
+            }.get(x, x),
             key="ai_provider",
         )
 
@@ -87,17 +91,17 @@ with st.sidebar:
             api_key = st.text_input(
                 api_key_label,
                 type="password",
-                placeholder="Paste your key or add to secrets…",
+                placeholder="Key active from secrets, or paste custom key…",
                 key="api_key",
             )
             resolved_key = active_key or api_key
             if resolved_key:
-                st.markdown("""<div class="status-pill status-live">✅ API Key Active</div>""", unsafe_allow_html=True)
+                st.markdown("""<div class="status-pill status-live">✅ Live AI Active</div>""", unsafe_allow_html=True)
             else:
-                st.markdown("""<div class="status-pill status-demo">⚠️ No key — using demo fallback</div>""", unsafe_allow_html=True)
+                st.markdown("""<div class="status-pill status-demo">⚠️ No key found — demo fallback</div>""", unsafe_allow_html=True)
         else:
-            st.markdown("""<div class="status-pill status-demo">⚡ Demo Mode Active</div>""", unsafe_allow_html=True)
-            st.caption("Add a Gemini or Groq key for live AI generation.")
+            st.markdown("""<div class="status-pill status-demo">⚡ Offline Demo Mode</div>""", unsafe_allow_html=True)
+            st.caption("Switch to Google Gemini for real-time live generation.")
 
     st.markdown("---")
 
