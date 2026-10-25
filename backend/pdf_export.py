@@ -10,8 +10,52 @@ from fpdf import FPDF
 from backend.config import EMERGENCY_CONTACTS, APP_NAME
 
 
+def clean_for_pdf(text: str) -> str:
+    """Sanitize strings to ensure strict compatibility with core Latin-1 PDF fonts."""
+    if not text:
+        return ""
+    text = str(text)
+    replacements = {
+        "✈": "",
+        "₹": "INR ",
+        "€": "EUR ",
+        "£": "GBP ",
+        "—": " - ",
+        "–": " - ",
+        "’": "'",
+        "‘": "'",
+        "“": '"',
+        "”": '"',
+        "•": "*",
+        "☐": "[ ]",
+        "☑": "[x]",
+        "📍": "",
+        "💰": "",
+        "💡": "Tip: ",
+        "🗓": "Dates: ",
+        "🌙": "",
+        "👥": "Party: ",
+        "💵": "Cost: ",
+        "🆘": "",
+        "✅": "[x] ",
+        "🚔": "Police: ",
+        "🚑": "Ambulance: ",
+        "🗺️": "Tourist Police: ",
+        "🏛️": "Embassy: ",
+        "⭐": "*",
+        "🎯": "",
+        "🏃": "",
+        "🎨": "",
+        "🎒": "",
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    # Ensure all remaining characters are safely encodable in latin-1
+    return text.encode("latin-1", "ignore").decode("latin-1")
+
+
 class ItineraryPDF(FPDF):
-    """Custom FPDF subclass with branded header/footer."""
+    """Custom FPDF subclass with branded header/footer and Unicode safety."""
 
     PURPLE = (99, 102, 241)
     PINK = (236, 72, 153)
@@ -21,6 +65,11 @@ class ItineraryPDF(FPDF):
     GREEN = (74, 222, 128)
     ORANGE = (251, 146, 60)
 
+    def normalize_text(self, text: str) -> str:
+        """Automatically sanitize all text passed to cells/multi-cells."""
+        cleaned = clean_for_pdf(text)
+        return super().normalize_text(cleaned)
+
     def header(self):
         # Gradient-style top bar
         self.set_fill_color(*self.PURPLE)
@@ -29,7 +78,7 @@ class ItineraryPDF(FPDF):
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*self.WHITE)
         self.set_y(10)
-        self.cell(0, 6, APP_NAME.upper(), align="C", ln=True)
+        self.cell(0, 6, clean_for_pdf(APP_NAME.upper()), align="C", ln=True)
         self.ln(4)
 
     def footer(self):
@@ -42,21 +91,21 @@ class ItineraryPDF(FPDF):
         self.set_fill_color(*self.PURPLE)
         self.set_text_color(*self.WHITE)
         self.set_font("Helvetica", "B", 13)
-        self.cell(0, 10, title, ln=True, fill=True)
+        self.cell(0, 10, clean_for_pdf(title), ln=True, fill=True)
         if subtitle:
             self.set_font("Helvetica", "I", 9)
             self.set_text_color(*self.LIGHT_GRAY)
-            self.cell(0, 6, subtitle, ln=True)
+            self.cell(0, 6, clean_for_pdf(subtitle), ln=True)
         self.ln(3)
 
     def day_header(self, day_num: int, theme: str, cluster: str, total_usd: int):
         self.set_fill_color(30, 40, 70)
         self.set_text_color(*self.WHITE)
         self.set_font("Helvetica", "B", 11)
-        self.cell(0, 8, f"  Day {day_num}  —  {theme}", ln=True, fill=True)
+        self.cell(0, 8, clean_for_pdf(f"  Day {day_num}  -  {theme}"), ln=True, fill=True)
         self.set_font("Helvetica", "", 8)
         self.set_text_color(*self.LIGHT_GRAY)
-        self.cell(0, 5, f"  📍 {cluster}   💰 Day total: ${total_usd}", ln=True)
+        self.cell(0, 5, clean_for_pdf(f"  {cluster}   |   Day total: ${total_usd}"), ln=True)
         self.ln(2)
 
     def slot_row(self, slot: dict):
