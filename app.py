@@ -28,6 +28,7 @@ from backend.config import (
     VIBES, BUDGET_LEVELS, TRAVEL_PARTY, PACE_OPTIONS, INTERESTS,
 )
 from backend.trip_db import init_db
+from backend.ai_client import get_active_api_key
 from frontend.tabs.tab1_destinations import render_tab1
 from frontend.tabs.tab2_itinerary import render_tab2
 from frontend.tabs.tab3_vibe import render_tab3
@@ -82,14 +83,16 @@ with st.sidebar:
 
         if provider != "demo":
             api_key_label = "Gemini API Key" if provider == "gemini" else "Groq API Key"
+            active_key = get_active_api_key(provider)
             api_key = st.text_input(
                 api_key_label,
                 type="password",
-                placeholder="Paste your key here…",
+                placeholder="Paste your key or add to secrets…",
                 key="api_key",
             )
-            if api_key:
-                st.markdown("""<div class="status-pill status-live">✅ API Key Configured</div>""", unsafe_allow_html=True)
+            resolved_key = active_key or api_key
+            if resolved_key:
+                st.markdown("""<div class="status-pill status-live">✅ API Key Active</div>""", unsafe_allow_html=True)
             else:
                 st.markdown("""<div class="status-pill status-demo">⚠️ No key — using demo fallback</div>""", unsafe_allow_html=True)
         else:

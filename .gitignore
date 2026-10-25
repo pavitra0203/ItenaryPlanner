@@ -23,3 +23,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.log
+
+# Secrets & Environment variables
+.env
+*.env
+.streamlit/secrets.toml

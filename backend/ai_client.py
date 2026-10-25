@@ -28,15 +28,39 @@ def _call_groq(prompt: str, api_key: str) -> str:
     )
     return completion.choices[0].message.content
 
+import os
+
+def get_active_api_key(provider: str) -> str:
+    """Retrieve API key from session state, st.secrets, or environment variables."""
+    key = st.session_state.get("api_key", "").strip()
+    placeholder_keys = {"your_gemini_api_key_here", "your_groq_api_key_here", ""}
+    if key and key not in placeholder_keys:
+        return key
+
+    secret_name = "GEMINI_API_KEY" if provider == "gemini" else "GROQ_API_KEY"
+    try:
+        val = str(st.secrets.get(secret_name, "")).strip()
+        if val and val not in placeholder_keys:
+            return val
+    except Exception:
+        pass
+
+    env_val = os.getenv(secret_name, "").strip()
+    if env_val and env_val not in placeholder_keys:
+        return env_val
+
+    return ""
+
+
 # ── Main dispatch ─────────────────────────────────────────────────────────────
 
 def call_ai(prompt: str) -> str:
     """
-    Dispatch to the active AI provider based on session state.
+    Dispatch to the active AI provider based on session state or secrets.
     Falls back to demo mode if no key is configured.
     """
     provider = st.session_state.get("ai_provider", "demo")
-    api_key = st.session_state.get("api_key", "")
+    api_key = get_active_api_key(provider)
 
     if provider == "demo" or not api_key:
         return "__DEMO__"
