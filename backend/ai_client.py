@@ -9,12 +9,52 @@ import streamlit as st
 # ── Provider helpers ─────────────────────────────────────────────────────────
 
 def _call_gemini(prompt: str, api_key: str) -> str:
-    """Call Google Gemini (gemini-1.5-flash) and return raw text."""
-    import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-    return response.text
+    """Call Google Gemini with resilient model fallback and direct REST/SDK dispatch."""
+    candidate_models = [
+        "gemini-3.5-flash",
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+    ]
+
+    # Primary: Fast, direct REST API (immune to gRPC DNS/version conflicts)
+    import requests
+    for model_name in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        try:
+            resp = requests.post(
+                url,
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                headers={"Content-Type": "application/json"},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            if resp.status_code in (404, 503):
+                continue
+        except Exception:
+            continue
+
+    # Secondary: SDK fallback
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        for model_name in candidate_models:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                if any(err in str(e).lower() for err in ["404", "not found", "no longer available"]):
+                    continue
+                raise e
+    except Exception as exc:
+        raise exc
+
+    raise RuntimeError("None of the supported Gemini models responded successfully. Please verify your API key.")
 
 def _call_groq(prompt: str, api_key: str) -> str:
     """Call Groq (llama3-70b-8192) and return raw text."""
