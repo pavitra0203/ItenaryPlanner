@@ -1,6 +1,7 @@
 """
 pdf_export.py - Generate a beautifully formatted offline PDF travel itinerary.
-Uses fpdf2 (no external database required).
+Styled according to the project's Modern Minimalist (Nordic / Japandi) design system.
+Uses fpdf2 with zero external binary dependencies.
 """
 
 from __future__ import annotations
@@ -32,16 +33,16 @@ def clean_for_pdf(text: str) -> str:
         "📍": "",
         "💰": "",
         "💡": "Tip: ",
-        "🗓": "Dates: ",
+        "🗓": "",
         "🌙": "",
-        "👥": "Party: ",
-        "💵": "Cost: ",
+        "👥": "",
+        "💵": "",
         "🆘": "",
         "✅": "[x] ",
-        "🚔": "Police: ",
-        "🚑": "Ambulance: ",
-        "🗺️": "Tourist Police: ",
-        "🏛️": "Embassy: ",
+        "🚔": "",
+        "🚑": "",
+        "🗺️": "",
+        "🏛️": "",
         "⭐": "*",
         "🎯": "",
         "🏃": "",
@@ -55,15 +56,26 @@ def clean_for_pdf(text: str) -> str:
 
 
 class ItineraryPDF(FPDF):
-    """Custom FPDF subclass with branded header/footer and Unicode safety."""
+    """
+    Custom FPDF subclass formatted in the Nordic / Japandi aesthetic:
+    warm paper white canvas, walnut woodcraft, matcha sage, terracotta,
+    and crisp charcoal typography.
+    """
 
-    PURPLE = (99, 102, 241)
-    PINK = (236, 72, 153)
-    DARK = (15, 20, 40)
-    LIGHT_GRAY = (148, 163, 184)
-    WHITE = (241, 245, 249)
-    GREEN = (74, 222, 128)
-    ORANGE = (251, 146, 60)
+    # Nordic / Japandi Palette
+    WALNUT = (120, 84, 56)       # #785438 - Primary Brand
+    SAGE = (82, 115, 91)         # #52735B - Matcha Accent
+    TERRACOTTA = (179, 101, 62)  # #B3653E - Terracotta Accent
+    CHARCOAL = (28, 25, 23)      # #1C1917 - High-contrast text
+    STONE = (120, 113, 108)      # #78716C - Muted metadata
+    SAND = (247, 245, 240)       # #F7F5F0 - Washi card background
+    BORDER = (228, 221, 212)     # #E4DDD4 - Tactile border lines
+    WHITE = (255, 255, 255)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_auto_page_break(auto=True, margin=15)
+        self.set_margins(14, 14, 14)
 
     def normalize_text(self, text: str) -> str:
         """Automatically sanitize all text passed to cells/multi-cells."""
@@ -71,233 +83,277 @@ class ItineraryPDF(FPDF):
         return super().normalize_text(cleaned)
 
     def header(self):
-        # Gradient-style top bar
-        self.set_fill_color(*self.PURPLE)
-        self.rect(0, 0, 210, 8, "F")
-        # App name
-        self.set_font("Helvetica", "B", 9)
-        self.set_text_color(*self.WHITE)
-        self.set_y(10)
-        self.cell(0, 6, clean_for_pdf(APP_NAME.upper()), align="C", ln=True)
-        self.ln(4)
+        # Header only on pages 2 and onward to keep page 1 pristine
+        if self.page_no() > 1:
+            self.set_fill_color(*self.WALNUT)
+            self.rect(14, 8, 182, 1.2, "F")
+            self.set_font("Helvetica", "B", 7.5)
+            self.set_text_color(*self.STONE)
+            self.set_y(10)
+            self.cell(0, 4, clean_for_pdf(f"{APP_NAME.upper()}   |   PERSONALIZED TRAVEL ITINERARY"), align="L")
+            self.set_draw_color(*self.BORDER)
+            self.line(14, 15, 196, 15)
+            self.ln(3)
 
     def footer(self):
-        self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(*self.LIGHT_GRAY)
-        self.cell(0, 10, f"Page {self.page_no()}", align="C")
-
-    def chapter_title(self, title: str, subtitle: str = ""):
-        self.set_fill_color(*self.PURPLE)
-        self.set_text_color(*self.WHITE)
-        self.set_font("Helvetica", "B", 13)
-        self.cell(0, 10, clean_for_pdf(title), ln=True, fill=True)
-        if subtitle:
-            self.set_font("Helvetica", "I", 9)
-            self.set_text_color(*self.LIGHT_GRAY)
-            self.cell(0, 6, clean_for_pdf(subtitle), ln=True)
-        self.ln(3)
-
-    def day_header(self, day_num: int, theme: str, cluster: str, total_usd: int):
-        self.set_fill_color(30, 40, 70)
-        self.set_text_color(*self.WHITE)
-        self.set_font("Helvetica", "B", 11)
-        self.cell(0, 8, clean_for_pdf(f"  Day {day_num}  -  {theme}"), ln=True, fill=True)
-        self.set_font("Helvetica", "", 8)
-        self.set_text_color(*self.LIGHT_GRAY)
-        self.cell(0, 5, clean_for_pdf(f"  {cluster}   |   Day total: ${total_usd}"), ln=True)
-        self.ln(2)
-
-    def slot_row(self, slot: dict):
-        period_colors = {
-            "Morning": self.ORANGE,
-            "Afternoon": self.PURPLE,
-            "Evening": self.PINK,
-            "Lunch": self.GREEN,
-        }
-        period = slot.get("period", "Morning")
-        color = period_colors.get(period, self.LIGHT_GRAY)
-
-        # Period badge
-        self.set_fill_color(*color)
-        self.set_text_color(*self.WHITE)
-        self.set_font("Helvetica", "B", 8)
-        self.cell(28, 5, f" {slot.get('emoji','⭐')} {period}", fill=True, border=0)
-        self.set_text_color(*self.LIGHT_GRAY)
-        self.set_font("Helvetica", "", 8)
-        self.cell(0, 5, slot.get("time", ""), ln=True)
-
-        # Activity name
-        self.set_font("Helvetica", "B", 10)
-        self.set_text_color(*self.WHITE)
-        self.set_x(14)
-        self.cell(0, 6, slot.get("activity", ""), ln=True)
-
-        # Description
-        self.set_font("Helvetica", "", 8.5)
-        self.set_text_color(*self.LIGHT_GRAY)
-        self.set_x(14)
-        self.multi_cell(170, 5, slot.get("description", ""))
-
-        # Cost row
-        self.set_x(14)
-        self.set_font("Helvetica", "B", 8)
-        self.set_text_color(*self.GREEN)
-        self.cell(35, 5, f"${slot.get('cost_usd', 0)}")
-        self.set_text_color(*self.LIGHT_GRAY)
-        self.set_font("Helvetica", "", 8)
-        self.cell(35, 5, f"₹{slot.get('cost_inr', 0)}")
-        self.cell(0, 5, slot.get("cost_local", ""), ln=True)
-
-        # Tip
-        self.set_x(14)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(251, 191, 36)  # amber
-        self.multi_cell(170, 4.5, f"💡 {slot.get('tips', '')}")
-        self.ln(4)
-
-    def section_divider(self):
-        self.set_draw_color(*self.PURPLE)
-        self.set_line_width(0.5)
+        self.set_y(-12)
+        self.set_draw_color(*self.BORDER)
         self.line(14, self.get_y(), 196, self.get_y())
-        self.ln(4)
+        self.set_font("Helvetica", "I", 7.5)
+        self.set_text_color(*self.STONE)
+        date_str = datetime.now().strftime("%B %Y")
+        self.cell(90, 8, clean_for_pdf(f"Personalized Travel Guide - {date_str}"), align="L")
+        self.cell(92, 8, f"Page {self.page_no()}", align="R")
 
 
 def generate_pdf(itinerary: dict, trip_prefs: dict) -> bytes:
     """
-    Generate and return PDF bytes for the given itinerary dict.
+    Generate and return clean, compact PDF bytes for the given itinerary dict.
+    Flows continuously without wasteful empty pages.
     """
     pdf = ItineraryPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=18)
-    pdf.set_margins(14, 24, 14)
-
-    # ── Cover Page ──────────────────────────────────────────────────────────
     pdf.add_page()
-    pdf.set_fill_color(10, 14, 26)
-    pdf.rect(0, 0, 210, 297, "F")
 
-    # Decorative top band
-    pdf.set_fill_color(*ItineraryPDF.PURPLE)
-    pdf.rect(0, 0, 210, 40, "F")
+    # ── Top Decorative Branding Bar ──────────────────────────────────────────
+    pdf.set_fill_color(*ItineraryPDF.WALNUT)
+    pdf.rect(14, 12, 182, 3.5, "F")
+    pdf.set_fill_color(*ItineraryPDF.SAGE)
+    pdf.rect(14, 15.5, 60, 1.2, "F")
 
-    pdf.set_y(10)
+    # ── Editorial Title Section ──────────────────────────────────────────────
+    pdf.set_y(19)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ItineraryPDF.WALNUT)
+    pdf.cell(0, 4, "CURATED EXPEDITION ITINERARY & DESTINATION GUIDE", ln=True)
+
+    dest_name = clean_for_pdf(itinerary.get("destination", "Custom Itinerary"))
     pdf.set_font("Helvetica", "B", 22)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 10, "✈ TRAVEL ITINERARY", align="C", ln=True)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(200, 200, 220)
-    pdf.cell(0, 7, APP_NAME, align="C", ln=True)
+    pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+    pdf.cell(0, 9, dest_name, ln=True)
 
-    # Destination box
-    pdf.set_y(55)
-    pdf.set_font("Helvetica", "B", 30)
-    pdf.set_text_color(167, 139, 250)  # purple
-    pdf.cell(0, 14, itinerary.get("destination", ""), align="C", ln=True)
+    # Subtitle
+    party = clean_for_pdf(str(trip_prefs.get("party", "Solo Traveler")))
+    duration = itinerary.get("duration", len(itinerary.get("days", [])))
+    budget = clean_for_pdf(str(trip_prefs.get("budget", "Moderate")))
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(*ItineraryPDF.STONE)
+    pdf.cell(0, 5, f"{duration} Days  *  {party}  *  {budget} Level", ln=True)
+    pdf.ln(2)
 
-    # Trip meta
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(148, 163, 184)
-    meta_lines = [
-        f"🗓  {trip_prefs.get('dates', 'Dates TBD')}",
-        f"🌙  {itinerary.get('duration', '?')} Days",
-        f"👥  {trip_prefs.get('party', 'Solo')}",
-        f"💰  {trip_prefs.get('budget', 'Moderate')}",
-        f"💵  Est. Total: ${itinerary.get('total_cost_usd', 0)}  (₹{itinerary.get('total_cost_inr', 0)})",
+    # ── Overview Summary Card ────────────────────────────────────────────────
+    start_y = pdf.get_y()
+    card_h = 16
+    pdf.set_fill_color(*ItineraryPDF.SAND)
+    pdf.set_draw_color(*ItineraryPDF.BORDER)
+    pdf.rect(14, start_y, 182, card_h, "DF")
+
+    # 4 Columns
+    col_w = 182 / 4
+    dates_val = clean_for_pdf(trip_prefs.get("dates") or "Flexible Dates")
+    pace_val = clean_for_pdf(trip_prefs.get("pace") or "Moderate")
+    tot_usd = itinerary.get("total_cost_usd", 0)
+    tot_inr = itinerary.get("total_cost_inr", 0)
+
+    overview_cols = [
+        ("DATES", dates_val),
+        ("PACE / PARTY", f"{pace_val} ({party[:10]})"),
+        ("TOTAL EST. (USD)", f"${tot_usd:,}"),
+        ("TOTAL EST. (INR)", f"INR {tot_inr:,}"),
     ]
-    pdf.ln(8)
-    for line in meta_lines:
-        pdf.cell(0, 8, line, align="C", ln=True)
 
-    # Generated timestamp
-    pdf.set_y(-40)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(100, 116, 139)
-    pdf.cell(0, 6, f"Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", align="C", ln=True)
-    pdf.cell(0, 6, itinerary.get("currency_note", ""), align="C", ln=True)
+    for i, (label, val) in enumerate(overview_cols):
+        col_x = 14 + (i * col_w)
+        pdf.set_xy(col_x + 3, start_y + 2.5)
+        pdf.set_font("Helvetica", "B", 6.8)
+        pdf.set_text_color(*ItineraryPDF.WALNUT)
+        pdf.cell(col_w - 6, 4, label)
 
-    # ── Day Pages ────────────────────────────────────────────────────────────
-    for day_data in itinerary.get("days", []):
-        pdf.add_page()
-        pdf.set_fill_color(10, 14, 26)
-        pdf.rect(0, 0, 210, 297, "F")
+        pdf.set_xy(col_x + 3, start_y + 7.5)
+        pdf.set_font("Helvetica", "B", 8.8)
+        pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+        pdf.cell(col_w - 6, 5, val)
 
-        pdf.day_header(
-            day_data["day"],
-            day_data.get("theme", f"Day {day_data['day']}"),
-            day_data.get("cluster_area", ""),
-            day_data.get("day_total_usd", 0),
-        )
-        pdf.section_divider()
+    pdf.set_y(start_y + card_h + 4)
 
-        for slot in day_data.get("slots", []):
-            pdf.slot_row(slot)
+    # ── Sequential Day Plans (Continuous Flow) ───────────────────────────────
+    days = itinerary.get("days", [])
+    period_colors = {
+        "Morning": ItineraryPDF.TERRACOTTA,
+        "Lunch": ItineraryPDF.SAGE,
+        "Afternoon": ItineraryPDF.WALNUT,
+        "Evening": (50, 45, 40),
+    }
 
-        # Day cost summary
-        pdf.set_fill_color(30, 40, 70)
-        pdf.set_text_color(*ItineraryPDF.WHITE)
+    for day in days:
+        # Check if remaining space is too small for header + 1 slot (need ~40mm)
+        if pdf.get_y() > 240:
+            pdf.add_page()
+
+        day_num = day.get("day", 1)
+        theme = clean_for_pdf(day.get("theme", f"Day {day_num}"))
+        cluster = clean_for_pdf(day.get("cluster_area", "Local Area"))
+        day_usd = day.get("day_total_usd", 0)
+        day_inr = day.get("day_total_inr", 0)
+
+        # Day Header Bar
+        hy = pdf.get_y()
+        pdf.set_fill_color(*ItineraryPDF.WALNUT)
+        pdf.rect(14, hy, 182, 6.8, "F")
+        pdf.set_xy(16, hy + 1.2)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(0, 7,
-                 f"  Day {day_data['day']} Total:  ${day_data.get('day_total_usd', 0)}  |  ₹{day_data.get('day_total_inr', 0)}",
-                 fill=True, ln=True)
+        pdf.set_text_color(*ItineraryPDF.WHITE)
+        pdf.cell(120, 4.5, f"DAY {day_num} : {theme.upper()}")
 
-    # ── Budget Summary Page ──────────────────────────────────────────────────
-    pdf.add_page()
-    pdf.set_fill_color(10, 14, 26)
-    pdf.rect(0, 0, 210, 297, "F")
+        # Daily budget right-aligned in header
+        pdf.set_xy(136, hy + 1.2)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(58, 4.5, f"${day_usd}  |  INR {day_inr:,}", align="R")
 
-    pdf.chapter_title("💰 Budget Summary", "Itemized cost tracker across all days")
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*ItineraryPDF.LIGHT_GRAY)
+        # Cluster Sub-bar
+        pdf.set_y(hy + 7.5)
+        pdf.set_font("Helvetica", "I", 7.5)
+        pdf.set_text_color(*ItineraryPDF.STONE)
+        pdf.cell(0, 4, f"Cluster Area: {cluster}", ln=True)
+        pdf.ln(1)
 
-    # Table header
-    pdf.set_fill_color(*ItineraryPDF.PURPLE)
+        # Render Slots
+        for slot in day.get("slots", []):
+            if pdf.get_y() > 255:
+                pdf.add_page()
+
+            period = slot.get("period", "Activity")
+            p_color = period_colors.get(period, ItineraryPDF.WALNUT)
+            time_str = clean_for_pdf(slot.get("time", ""))
+            activity = clean_for_pdf(slot.get("activity", "Activity"))
+            description = clean_for_pdf(slot.get("description", ""))
+            tips = clean_for_pdf(slot.get("tips", ""))
+
+            slot_usd = slot.get("cost_usd", 0)
+            slot_inr = slot.get("cost_inr", 0)
+
+            sy = pdf.get_y()
+            # Left vertical accent line
+            pdf.set_fill_color(*p_color)
+            pdf.rect(14, sy, 1.8, 11, "F")
+
+            # Period Badge
+            pdf.set_xy(18, sy)
+            pdf.set_fill_color(*p_color)
+            pdf.set_text_color(*ItineraryPDF.WHITE)
+            pdf.set_font("Helvetica", "B", 7)
+            badge_text = f" {period.upper()} "
+            pdf.cell(20, 4, badge_text, fill=True)
+
+            # Time
+            pdf.set_font("Helvetica", "", 7.5)
+            pdf.set_text_color(*ItineraryPDF.STONE)
+            pdf.cell(45, 4, f"  {time_str}")
+
+            # Cost (Right aligned)
+            cost_label = f"${slot_usd}"
+            if slot_inr:
+                cost_label += f"  (INR {slot_inr:,})"
+            pdf.set_font("Helvetica", "B", 7.5)
+            pdf.set_text_color(*ItineraryPDF.SAGE)
+            pdf.cell(0, 4, cost_label, align="R", ln=True)
+
+            # Activity Name
+            pdf.set_x(18)
+            pdf.set_font("Helvetica", "B", 8.8)
+            pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+            pdf.cell(0, 4.5, activity, ln=True)
+
+            # Description
+            if description:
+                pdf.set_x(18)
+                pdf.set_font("Helvetica", "", 7.8)
+                pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+                pdf.multi_cell(176, 3.8, description)
+
+            # Tip
+            if tips:
+                pdf.set_x(18)
+                pdf.set_font("Helvetica", "I", 7.2)
+                pdf.set_text_color(*ItineraryPDF.TERRACOTTA)
+                pdf.cell(0, 3.6, f"Tip: {tips}", ln=True)
+
+            pdf.ln(2)
+
+        pdf.ln(2.5)
+
+    # ── Final Section: Budget Table & Safety / Checklist ─────────────────────
+    if pdf.get_y() > 165:
+        pdf.add_page()
+    else:
+        pdf.ln(3)
+
+    sec_y = pdf.get_y()
+    pdf.set_fill_color(*ItineraryPDF.WALNUT)
+    pdf.rect(14, sec_y, 182, 6, "F")
+    pdf.set_xy(16, sec_y + 1)
+    pdf.set_font("Helvetica", "B", 8.5)
     pdf.set_text_color(*ItineraryPDF.WHITE)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(15, 7, "Day", fill=True, border=0)
-    pdf.cell(80, 7, "Theme", fill=True, border=0)
-    pdf.cell(35, 7, "USD", fill=True, border=0)
-    pdf.cell(42, 7, "INR", fill=True, ln=True, border=0)
+    pdf.cell(0, 4, "TRIP BUDGET BREAKDOWN & LOGISTICS")
+    pdf.set_y(sec_y + 8)
+
+    # Budget Table Header
+    pdf.set_fill_color(*ItineraryPDF.SAND)
+    pdf.set_draw_color(*ItineraryPDF.BORDER)
+    pdf.set_text_color(*ItineraryPDF.WALNUT)
+    pdf.set_font("Helvetica", "B", 7.5)
+    pdf.cell(14, 5, "DAY", border=1, fill=True)
+    pdf.cell(98, 5, "THEME & HIGHLIGHTS", border=1, fill=True)
+    pdf.cell(35, 5, "EST. USD", border=1, fill=True, align="R")
+    pdf.cell(35, 5, "EST. INR", border=1, fill=True, align="R", ln=True)
 
     running_usd = 0
     running_inr = 0
-    for i, day_data in enumerate(itinerary.get("days", [])):
-        running_usd += day_data.get("day_total_usd", 0)
-        running_inr += day_data.get("day_total_inr", 0)
-        fill = i % 2 == 0
-        bg = (18, 25, 45) if fill else (13, 18, 35)
+    for i, d in enumerate(days):
+        day_cost_usd = d.get("day_total_usd", 0)
+        day_cost_inr = d.get("day_total_inr", 0)
+        running_usd += day_cost_usd
+        running_inr += day_cost_inr
+
+        bg = ItineraryPDF.WHITE if i % 2 == 0 else ItineraryPDF.SAND
         pdf.set_fill_color(*bg)
-        pdf.set_text_color(*ItineraryPDF.WHITE)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(15, 6, f"{day_data['day']}", fill=True)
-        pdf.cell(80, 6, day_data.get("theme", "")[:38], fill=True)
-        pdf.set_text_color(*ItineraryPDF.GREEN)
-        pdf.cell(35, 6, f"${day_data.get('day_total_usd', 0)}", fill=True)
-        pdf.set_text_color(167, 139, 250)
-        pdf.cell(42, 6, f"₹{day_data.get('day_total_inr', 0)}", fill=True, ln=True)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+        pdf.cell(14, 4.5, f"Day {d.get('day', i+1)}", border=1, fill=True)
+        pdf.cell(98, 4.5, clean_for_pdf(d.get("theme", "")[:50]), border=1, fill=True)
+        pdf.set_text_color(*ItineraryPDF.SAGE)
+        pdf.cell(35, 4.5, f"${day_cost_usd}", border=1, fill=True, align="R")
+        pdf.cell(35, 4.5, f"INR {day_cost_inr:,}", border=1, fill=True, align="R", ln=True)
 
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_fill_color(*ItineraryPDF.PURPLE)
+    # Total row
+    pdf.set_fill_color(*ItineraryPDF.WALNUT)
     pdf.set_text_color(*ItineraryPDF.WHITE)
-    pdf.cell(95, 8, "  TOTAL TRIP COST", fill=True)
-    pdf.set_text_color(*ItineraryPDF.GREEN)
-    pdf.cell(35, 8, f"${running_usd}", fill=True)
-    pdf.set_text_color(167, 139, 250)
-    pdf.cell(42, 8, f"₹{running_inr}", fill=True, ln=True)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(112, 5, "TOTAL TRIP ESTIMATE", border=1, fill=True)
+    pdf.cell(35, 5, f"${running_usd:,}", border=1, fill=True, align="R")
+    pdf.cell(35, 5, f"INR {running_inr:,}", border=1, fill=True, align="R", ln=True)
 
-    pdf.ln(5)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(*ItineraryPDF.LIGHT_GRAY)
-    pdf.multi_cell(0, 5, itinerary.get("currency_note", ""))
+    currency_note = clean_for_pdf(itinerary.get("currency_note", ""))
+    if currency_note:
+        pdf.set_font("Helvetica", "I", 6.8)
+        pdf.set_text_color(*ItineraryPDF.STONE)
+        pdf.cell(0, 4, currency_note, ln=True)
 
-    # ── Emergency Contacts Page ──────────────────────────────────────────────
-    pdf.add_page()
-    pdf.set_fill_color(10, 14, 26)
-    pdf.rect(0, 0, 210, 297, "F")
+    pdf.ln(3)
 
-    pdf.chapter_title("🆘 Emergency Contacts & Safety Checklist")
+    # ── Emergency Contacts & Checklist (Compact 2-Column) ────────────────────
+    if pdf.get_y() > 220:
+        pdf.add_page()
 
-    # Detect country
+    two_col_y = pdf.get_y()
+    left_w = 85
+    right_w = 93
+
+    # Left Column: Emergency Contacts
+    pdf.set_xy(14, two_col_y)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ItineraryPDF.WALNUT)
+    pdf.cell(left_w, 4.5, "EMERGENCY CONTACTS", ln=True)
+
     dest = itinerary.get("destination", "")
     country_key = "Default"
     for country in EMERGENCY_CONTACTS:
@@ -307,43 +363,43 @@ def generate_pdf(itinerary: dict, trip_prefs: dict) -> bytes:
     contacts = EMERGENCY_CONTACTS.get(country_key, EMERGENCY_CONTACTS["Default"])
 
     contact_items = [
-        ("🚔 Police / Emergency", contacts.get("police", "112")),
-        ("🚑 Ambulance", contacts.get("ambulance", "112")),
-        ("🗺️ Tourist Police", contacts.get("tourist_police", "N/A")),
-        ("🏛️ US Embassy", contacts.get("embassy_us", "www.usembassy.gov")),
+        ("Police / Emergency", contacts.get("police", "112 / 911")),
+        ("Ambulance", contacts.get("ambulance", "112 / 911")),
+        ("Tourist Police", contacts.get("tourist_police", "Contact local office")),
+        ("US Embassy", contacts.get("embassy_us", "www.usembassy.gov")),
     ]
-    pdf.set_font("Helvetica", "", 10)
-    for label, value in contact_items:
-        pdf.set_text_color(*ItineraryPDF.ORANGE)
-        pdf.cell(60, 7, label)
-        pdf.set_text_color(*ItineraryPDF.WHITE)
-        pdf.cell(0, 7, value, ln=True)
-    pdf.ln(5)
 
-    # Pre-travel checklist
-    pdf.chapter_title("✅ Pre-Travel Checklist")
-    checklist = [
-        "Passport valid for 6+ months beyond travel date",
-        "Travel insurance purchased and policy number noted",
-        "Hotel/accommodation reservations confirmed & printed",
-        "Flight/transport tickets downloaded offline",
-        "Local currency exchanged or ATM plan arranged",
-        "Important medications packed with prescriptions",
-        "Phone unlocked or international SIM/data plan activated",
-        "Emergency contacts saved in phone & written down",
-        "Copies of all documents in email/cloud storage",
-        "Notify bank of travel dates to avoid card blocks",
-        "Download offline maps (Google Maps / Maps.me)",
-        "Check visa requirements and entry conditions",
+    pdf.set_font("Helvetica", "", 7.5)
+    for lbl, val in contact_items:
+        pdf.set_x(14)
+        pdf.set_text_color(*ItineraryPDF.STONE)
+        pdf.cell(35, 4, clean_for_pdf(lbl))
+        pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+        pdf.set_font("Helvetica", "B", 7.5)
+        pdf.cell(left_w - 35, 4, clean_for_pdf(val), ln=True)
+        pdf.set_font("Helvetica", "", 7.5)
+
+    # Right Column: Pre-Travel Checklist
+    pdf.set_xy(14 + left_w + 4, two_col_y)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*ItineraryPDF.WALNUT)
+    pdf.cell(right_w, 4.5, "PRE-TRAVEL CHECKLIST", ln=True)
+
+    checklist_items = [
+        "Passport valid 6+ months with copies saved",
+        "Travel insurance policy noted & active",
+        "Accommodation & flight tickets offline",
+        "Local currency & backup card configured",
+        "Important prescriptions & first aid packed",
+        "Offline maps downloaded (Google Maps / Maps.me)",
     ]
-    pdf.set_font("Helvetica", "", 9)
-    for item in checklist:
-        pdf.set_text_color(*ItineraryPDF.LIGHT_GRAY)
-        pdf.cell(8, 6, "☐")
-        pdf.set_text_color(*ItineraryPDF.WHITE)
-        pdf.cell(0, 6, item, ln=True)
 
-    # ── Output ───────────────────────────────────────────────────────────────
+    pdf.set_font("Helvetica", "", 7.2)
+    pdf.set_text_color(*ItineraryPDF.CHARCOAL)
+    for item in checklist_items:
+        pdf.set_x(14 + left_w + 4)
+        pdf.cell(right_w, 3.8, f"[ ]  {item}", ln=True)
+
     pdf_output = pdf.output(dest="S")
     if isinstance(pdf_output, str):
         return pdf_output.encode("latin-1")
