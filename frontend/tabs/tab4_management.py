@@ -12,23 +12,25 @@ from backend.config import DEMO_ITINERARY
 
 
 def _trip_card_html(trip: dict) -> str:
-    return f"""
-<div class="trip-hist-card">
-  <div>
-    <div class="trip-hist-dest">{trip['destination']}</div>
-    <div class="trip-hist-meta">
-      {trip['duration']} days · {trip['party']} · {trip['budget']}
-      {f"· {trip['dates']}" if trip.get('dates') else ''}
-    </div>
-    <div class="trip-hist-meta" style="margin-top:0.2rem;color:#607B68;">
-      Est. ${trip['total_cost_usd']} · Saved {trip['created_at']}
-    </div>
-  </div>
-  <div>
-    <span class="trip-hist-badge">#{trip['id']}</span>
-  </div>
-</div>
-"""
+    dest = trip.get("destination", "Unknown")
+    dur = trip.get("duration", 0)
+    party = trip.get("party", "Solo")
+    budget = trip.get("budget", "Moderate")
+    dates = f" · {trip['dates']}" if trip.get("dates") else ""
+    cost = trip.get("total_cost_usd", 0)
+    created = trip.get("created_at", "")
+    trip_id = trip.get("id", "")
+
+    return (
+        f'<div class="trip-hist-card">'
+        f'<div style="flex:1;">'
+        f'<div class="trip-hist-dest">{dest}</div>'
+        f'<div class="trip-hist-meta">{dur} days · {party} · {budget}{dates}</div>'
+        f'<div class="trip-hist-meta" style="margin-top:0.2rem;color:#607B68;">Est. ${cost} · Saved {created}</div>'
+        f'</div>'
+        f'<div><span class="trip-hist-badge">#{trip_id}</span></div>'
+        f'</div>'
+    )
 
 
 def render_tab4(prefs: dict):
@@ -60,18 +62,17 @@ def render_tab4(prefs: dict):
         dur   = itinerary.get("duration", 0)
         total = itinerary.get("total_cost_usd", 0)
 
-        st.markdown(f"""
-<div class="card" style="padding:1rem 1.4rem;">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
-    <div>
-      <div style="font-size:1rem;font-weight:600;color:#1C1917;">{dest}</div>
-      <div style="color:#A89F98;font-size:0.8rem;margin-top:0.15rem;">
-        {dur} days · {prefs.get('party','Solo')} · Est. ${total}
-      </div>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+        st.markdown(
+            f'<div class="card" style="padding:1rem 1.4rem;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">'
+            f'<div>'
+            f'<div style="font-size:1rem;font-weight:600;color:#1C1917;">{dest}</div>'
+            f'<div style="color:#A89F98;font-size:0.8rem;margin-top:0.15rem;">{dur} days · {prefs.get("party","Solo")} · Est. ${total}</div>'
+            f'</div>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
         action_col1, action_col2 = st.columns(2)
 
